@@ -1,5 +1,5 @@
 use std::env; 
-use std::process::Command;
+use std::process::{ExitCode, Command};
 use std::path::{Path,PathBuf};
 use std::fs::{self, File, DirEntry};
 use std::io::{self, Write};
@@ -245,12 +245,12 @@ fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
     return succeeded;
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cwd = match env::current_dir() {
         Ok(value) => value,
         Err(err) => {
             error!("Spores failed to reach current directory: {}", err);
-            return;
+            return ExitCode::FAILURE;
         },
     };
     unsafe {
@@ -259,77 +259,45 @@ fn main() {
     let kinoko = Kinoko::new(cwd.clone());
     if kinoko.argc > 0 && kinoko.argv[0] == String::from("-h") {
         kinoko.print_usage();
-        return;
+        return ExitCode::SUCCESS;
     }
     if kinoko.try_to_germinate() {
-        return;
+        return ExitCode::SUCCESS;
     }
     info!("Spores thrown at: {}", kinoko.cwd.display());
-    let entries = match kinoko.cwd.read_dir() {
-        Ok(dir) => dir,
+    let root_path = match search_directory_for_main_function(&kinoko.cwd, rust_file_dir_entry_checker) {
+        Ok(path) => path,
         Err(err) => {
-            error!("Failed to spread roots in present directory: {}", err);
-            return;
+            error!("{}", err);
+            return ExitCode::FAILURE;
+        },
+    };
+    
+    match File::create(kinoko.get_mushroom_path()) {
+        Err(err) => {
+            error!("Failed to grow mushroom: {}", err);
+            return ExitCode::FAILURE;
+        },
+        Ok(mut file) => {
+            let target_name = cwd.join("build").join(cwd.file_stem().unwrap());
+            let root_path = root_path.strip_prefix(&cwd).unwrap();
+            let root_path = format!("{}", root_path.display());
+            let target_name = target_name.strip_prefix(&cwd).unwrap();
+            let target_name = format!("{}", target_name.display());
+            let mut mushroom = Mushroom::new();
+            mushroom.root = root_path.to_string();
+            mushroom.head = target_name.to_string();
+            let contents:String = mushroom.serialize();
+            match file.write(&contents.into_bytes()) {
+                Ok(_) => info!("Mushroom sprung"),
+                Err(err) => {
+                    error!("Failed to spring mushroom: {}", err);
+                    return ExitCode::FAILURE;
+                },
+            }
         }
     };
-    let _root_path = search_directory_for_main_function(&kinoko.cwd, rust_file_dir_entry_checker);
-    for entry in entries {
-        if let Err(e) = entry {
-            error!("{}", e);
-            continue;
-        }
-        let entry_path = entry.unwrap().path();
-        if entry_path.is_dir() && entry_path.ends_with("src") {
-        }
-        if !entry_path.is_file() {
-            continue;
-        }
-        if entry_path != entry_path.with_extension("rs") {
-            continue;
-        }
-        match fs::read_to_string(&entry_path) {
-            Err(err) => {
-                error!("Failed to check file {}: {}", entry_path.display(), err);
-                continue;
-            },
-            Ok(content) => {
-                // Naive check for a main function
-                if !content.contains("fn main(") {
-                    continue;
-                }
-            }
-        }
-        match File::create(kinoko.get_mushroom_path()) {
-            Err(err) => {
-                error!("Failed to grow mushroom: {}", err);
-            },
-            Ok(mut file) => {
-                let target_name = match entry_path.parent() {
-                    Some(parent_dir) => parent_dir.join("build").join(parent_dir.file_stem().unwrap()),
-                    None => entry_path.clone(),
-                };
-                let prefix = {
-                    #[cfg(target_family="windows")]
-                    { format!("{}\\", kinoko.cwd.to_str().unwrap()) }
-                    #[cfg(target_family="unix")]
-                    format!("{}/", kinoko.cwd.to_str().unwrap())
-                };
-                let entry_path = format!("{}", entry_path.display());
-                let entry_path = entry_path.strip_prefix(&prefix).unwrap();
-                let target_name = format!("{}", target_name.display());
-                let target_name = target_name.strip_prefix(&prefix).unwrap();
-                let mut mushroom = Mushroom::new();
-                mushroom.root = entry_path.to_string();
-                mushroom.head = target_name.to_string();
-                let contents:String = mushroom.serialize();
-                match file.write(&contents.into_bytes()) {
-                    Ok(_) => info!("Mushroom sprung"),
-                    Err(err) => error!("Failed to spring mushroom: {}", err),
-                }
-            }
-        };
-        break;
-    }
+    return ExitCode::SUCCESS;
 }
 
 #[derive(Debug)]
@@ -432,19 +400,6 @@ fn search_directory_for_main_function_recursor<P: AsRef<Path> + Clone, C: Fn(&Di
                     }
                 }
             },
-        }
-        match fs::read_to_string(&entry_path) {
-            Err(err) => {
-                error!("Failed to check file {}: {}", entry_path.display(), err);
-                continue;
-            },
-            Ok(content) => {
-                // Naive check for a main function
-                if !content.contains("fn main(") {
-                    continue;
-                }
-                return Ok(entry_path);
-            }
         }
     }
 
