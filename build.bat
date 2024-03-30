@@ -1,9 +1,10 @@
 @ECHO OFF
 SETLOCAL
-SET TARGET=.\build\kinoko.exe
+SET TARGET_DIR=.\build
+SET TARGET=%TARGET_DIR%\kinoko.exe
 IF EXIST %TARGET% (
-	echo REN %TARGET% kinoko.old.exe
-	REN %TARGET% kinoko.old.exe
+	echo MOVE %TARGET% %TARGET_DIR%\kinoko.old.exe
+	MOVE %TARGET% kinoko.old.exe
 )
 
 echo rustc -o %TARGET% .\src\main.rs -C opt-level=3
