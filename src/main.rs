@@ -67,6 +67,8 @@ impl Mushroom {
             Err(_) => None,
             Ok(contents) => {
                 let mut mushroom = Mushroom::new();
+                let mut has_root = false;
+                let mut has_head = false;
                 for line in contents.lines() {
                     let split = match line.split_once(':') {
                         None => continue,
@@ -75,10 +77,27 @@ impl Mushroom {
                     let key = split.0.trim();
                     let val = split.1.trim();
                     match key {
-                        "root" => mushroom.root = String::from(val),
-                        "head" => mushroom.head = String::from(val),
+                        "root" => {
+                            mushroom.root = String::from(val);
+                            has_root = true;
+                        },
+                        "head" => {
+                            mushroom.head = String::from(val);
+                            has_head = true;
+                        },
                         _ => {}
                     };
+                }
+                if ! has_root {
+                    error!("Mushroom has no root! Root is required to know where main function is located");
+                    return None;
+                }
+                if ! has_head {
+                    error!("Mushroom has no head! Defaulting to build/app");
+                    #[cfg(target_family="windows")]
+                    mushroom.head = String::from("build\\app");
+                    #[cfg(target_family="unix")]
+                    mushroom.head = String::from("build/app");
                 }
 
                 Some(mushroom)
