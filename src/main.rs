@@ -89,8 +89,10 @@ impl Mushroom {
     fn create_command(&self, kinoko: &Kinoko) -> Command {
         let mut cmd = Command::new("rustc");
         cmd.arg("-o").arg({
-            let output = kinoko.cwd.join(&self.head);
-            if cfg!(window) { output.with_extension("exe") } else { output }
+            let mut output = kinoko.cwd.join(&self.head);
+            #[cfg(target_family="windows")]
+            output.set_extension("exe");
+            output
         }).arg({
             kinoko.cwd.join(&self.root)
         });
@@ -109,7 +111,10 @@ fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) {
         Err(err) => error!("Failed to execute command: {}", err),
         Ok(status) => {
             if status.success() {
-                info!("Germinated succesfully");
+                #[cfg(target_family="windows")]
+                info!("Germinated succesfully: {}.exe", mushroom.head);
+                #[cfg(target_family="unix")]
+                info!("Germinated succesfully: {}", mushroom.head);
             }
         },
     }
@@ -191,12 +196,13 @@ fn main() {
             },
             Ok(mut file) => {
                 let target_name = match entry_path.parent() {
-                    Some(parent_dir) => parent_dir.join("build").join(parent_dir.file_stem().unwrap()).with_extension("exe"),
-                    None => entry_path.with_extension("exe"),
+                    Some(parent_dir) => parent_dir.join("build").join(parent_dir.file_stem().unwrap()),
+                    None => entry_path.clone(),
                 };
-                let prefix = if cfg!(windows) {
-                    format!("{}\\", kinoko.cwd.to_str().unwrap())
-                } else {
+                let prefix = {
+                    #[cfg(target_family="windows")]
+                    { format!("{}\\", kinoko.cwd.to_str().unwrap()) }
+                    #[cfg(target_family="unix")]
                     format!("{}/", kinoko.cwd.to_str().unwrap())
                 };
                 let entry_path = format!("{}", entry_path.display());
@@ -216,3 +222,4 @@ fn main() {
         break;
     }
 }
+
