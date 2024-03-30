@@ -5,17 +5,16 @@ use std::fs::{self, File};
 use std::io::{Write};
 
 macro_rules! info {
-    ($($x:expr),*) => { println!("[INFO] {}", format!($($x),*)); }
+    ($($x:expr),*) => { println!("[INFO] {}", format!($($x),*)) }
 }
 macro_rules! error {
-    ($($x:expr),*) => { eprintln!("[ERROR] {}", format!($($x),*)); }
+    ($($x:expr),*) => { eprintln!("[ERROR] {}", format!($($x),*)) }
 }
 
 struct Kinoko {
     program: String,
     argv: Vec<String>,
     argc: usize,
-    os_temp_dir: PathBuf,
     cwd: PathBuf,
 }
 impl Kinoko {
@@ -23,23 +22,16 @@ impl Kinoko {
         let mut argv:Vec<String> = env::args().collect();
         let program = argv.remove(0);
         let argc:usize = argv.len();
-        let temp_dir = env::temp_dir();
         return Kinoko {
             program: program,
             argv: argv,
             argc: argc,
-            os_temp_dir: temp_dir,
             cwd: cwd,
         };
     }
 
-    fn pop_arg(&mut self) -> Option<String> {
-        if self.argc < 1 {
-            return None;
-        }
-        let item = self.argv.remove(0);
-        self.argc -= 1;
-        return Some(item);
+    fn print_usage(&self) {
+        println!("{} ", self.program);
     }
 
     fn get_mushroom_path(&self) -> PathBuf {
@@ -97,7 +89,8 @@ impl Mushroom {
     fn create_command(&self, kinoko: &Kinoko) -> Command {
         let mut cmd = Command::new("rustc");
         cmd.arg("-o").arg({
-            kinoko.cwd.join(&self.head)
+            let output = kinoko.cwd.join(&self.head);
+            if cfg!(window) { output.with_extension("exe") } else { output }
         }).arg({
             kinoko.cwd.join(&self.root)
         });
@@ -109,6 +102,18 @@ impl Mushroom {
     }
 }
 
+fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) {
+    let mut cmd = mushroom.create_command(kinoko);
+    let result = cmd.status();
+    match result {
+        Err(err) => error!("Failed to execute command: {}", err),
+        Ok(status) => {
+            if status.success() {
+                info!("Germinated succesfully");
+            }
+        },
+    }
+}
 
 fn main() {
     let cwd = match env::current_dir() {
@@ -118,22 +123,33 @@ fn main() {
             return;
         },
     };
-    let kinoko = Kinoko::new(cwd);
+    let kinoko = Kinoko::new(cwd.clone());
+    if kinoko.argc > 0 && kinoko.argv[0] == String::from("-h") {
+        kinoko.print_usage();
+        return;
+    }
     if kinoko.has_roots_at_cwd() {
         let mushroom = Mushroom::deserialize(kinoko.get_mushroom_path());
         if let Some(mushroom) = mushroom {
             info!("Mushroom.root = {}", mushroom.root);
             info!("Mushroom.head = {}", mushroom.head);
-            let mut cmd = mushroom.create_command(&kinoko);
-            let result = cmd.status();
-            match result {
-                Err(err) => error!("Failed to execute command: {}", err),
-                Ok(status) => {
-                    if status.success() {
-                        info!("Germinated succesfully");
-                    }
-                },
+            let source_path = cwd.join(&mushroom.root);
+            if !source_path.is_file() {
+                error!("Source file doesn't exist: {}", mushroom.root);
+                return;
             }
+            let target_path = cwd.join(&mushroom.head);
+            let target_dir  = target_path.parent();
+            if let Some(target_dir) = target_dir {
+                match fs::create_dir_all(target_dir) {
+                    Ok(_) => {},
+                    Err(err) => {
+                        error!("{}", err);
+                        return;
+                    },
+                }
+            }
+            make_head_from_roots(&mushroom, &kinoko);
             return;
         }
     }
@@ -175,10 +191,14 @@ fn main() {
             },
             Ok(mut file) => {
                 let target_name = match entry_path.parent() {
-                    Some(parent_dir) => parent_dir.join(parent_dir.file_stem().unwrap()).with_extension("exe"),
+                    Some(parent_dir) => parent_dir.join("build").join(parent_dir.file_stem().unwrap()).with_extension("exe"),
                     None => entry_path.with_extension("exe"),
                 };
-                let prefix = format!("{}\\", kinoko.cwd.to_str().unwrap());
+                let prefix = if cfg!(windows) {
+                    format!("{}\\", kinoko.cwd.to_str().unwrap())
+                } else {
+                    format!("{}/", kinoko.cwd.to_str().unwrap())
+                };
                 let entry_path = format!("{}", entry_path.display());
                 let entry_path = entry_path.strip_prefix(&prefix).unwrap();
                 let target_name = format!("{}", target_name.display());
