@@ -1,2 +1,2 @@
 root: src\main.rs
-head: build\kinoko.exe
+head: build\kinoko
