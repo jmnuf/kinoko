@@ -297,6 +297,10 @@ fn main() -> ExitCode {
             }
         }
     };
+
+    if ! kinoko.try_to_germinate() {
+        return ExitCode::FAILURE;
+    }
     return ExitCode::SUCCESS;
 }
 
