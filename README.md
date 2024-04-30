@@ -2,9 +2,9 @@
 
 For the uninformed, the title is mushroom mushroom essentially.
 Tiny program for compiling small rust projects.
+Initially written cause I don't understand cargo and `rustc` is just fine for most of my uses of rust, but too long to write the command even once (I'm pretty lazy). So I wrote a program that will just run the `rustc` command for me. It's not extremely crazy of a project it essentially just runs `rustc -o build/program src/main.rs` which honestly could be a bash script, but I don't want to write a bash script for all my minor utilities written in rust. Also I am not a rustacean, thank you very much.
 
-Cargo does a lot and I don't get it, nor do I care to understand much about it as of the writing of this, so in retaliation for simplicity I wrote a thin wrapper over rustc for building small CLI applications that could be written in bash if I knew how to write a for loop in it.
-It's unclear whether this project's scope will grow.
+Kinoko only is operational on code that does **NOT** use dependencies outside of the standard library.
 
 ## kinoko.🍄
 The `kinoko.🍄` file is the basis on how the mini-project is compiled in a very naive sense. All it keeps track of as of now is the target name and the entry file. If the file doesn't exist it will be created by attempting to find where a `fn main()` might exist in the current directory or the `src` subdirectory if it exists to figure out where's the entry file and proceeds to use the current directory's name as the output file name.
@@ -40,4 +40,4 @@ TODO:
 - [ ] Be able to change the target name/path through the CLI
 - [ ] Be able to change the source through the CLI
 - [ ] Be able to run tests like cargo
-- [ ] Be able to clear out kinoko and setup cargo for transitioning
+- [ ] Be able to clear out kinoko and transition to cargo
