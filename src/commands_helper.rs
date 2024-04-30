@@ -17,7 +17,7 @@ impl Action {
     }
 
     pub fn run_new(cmd_creator: impl Fn() -> Action) -> std::io::Result<ExitStatus> {
-        let action = cmd_creator();
+        let mut action = cmd_creator();
         return action.run();
     }
 

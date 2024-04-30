@@ -3,6 +3,7 @@ use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
 
+use cmd_init;
 use utility::{info, error, path_move};
 
 pub struct Kinoko {
@@ -26,7 +27,8 @@ impl Kinoko {
     }
 
     pub fn print_usage(&self) {
-        println!("{} ", self.program);
+        println!("{} -h  --  Display this help message", self.program);
+        println!("{} {}", self.program, cmd_init::usage_message());
     }
 
     pub fn get_mushroom_path(&self) -> PathBuf {

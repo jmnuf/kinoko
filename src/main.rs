@@ -30,6 +30,17 @@ fn main() -> ExitCode {
         kinoko.print_usage();
         return ExitCode::SUCCESS;
     }
+
+    if cmd_init::check_args(&kinoko.argv) {
+        return match cmd_init::run_command(cwd, kinoko.argv) {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(e) => {
+                error!("Failed to initialize project: {}", e);
+                ExitCode::FAILURE
+            },
+        }
+    }
+
     if kinoko.try_to_germinate() {
         return ExitCode::SUCCESS;
     }
