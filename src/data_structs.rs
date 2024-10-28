@@ -3,32 +3,63 @@ use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
 
-use cmd_init;
 use utility::{info, error, path_move};
 
 pub struct Kinoko {
-    pub program: String,
     pub argv: Vec<String>,
     pub argc: usize,
     pub cwd: PathBuf,
 }
 
+#[derive(Debug)]
+pub enum GerminationError {
+    MissingRoots(PathBuf),
+    MushroomUnpickable(PathBuf),
+    InvalidRoot(String),
+    NoHeadDir(std::io::Error),
+    GrowthFailure(String),
+}
+impl std::fmt::Display for GerminationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+	match self {
+	    GerminationError::MissingRoots(path) => {
+		write!(f, "No kinoko file is found at cwd: {}", path.display())
+	    },
+	    GerminationError::MushroomUnpickable(path) => {
+		write!(f, "Unable to pick mushroom's information: {}", path.display())
+	    },
+	    GerminationError::InvalidRoot(root) => {
+		write!(f, "Mushroom is unhealthy to be picked, doesn't seem to be a file: {}", root)
+	    },
+	    GerminationError::NoHeadDir(io_error) => {
+		write!(f, "Failed to create the space for germination, folder creation failed: {}", io_error)
+	    },
+	    GerminationError::GrowthFailure(failure) => {
+		write!(f, "Germination has failed to be done - {}", failure)
+	    },
+	}
+    }
+}
+impl std::error::Error for GerminationError {}
+
 impl Kinoko {
-    pub fn new(cwd: PathBuf) -> Kinoko {
+    pub fn new(cwd: PathBuf) -> Self {
         let mut argv:Vec<String> = env::args().collect();
-        let program = argv.remove(0);
         let argc:usize = argv.len();
         return Kinoko {
-            program: program,
             argv: argv,
             argc: argc,
             cwd: cwd,
         };
     }
 
-    pub fn print_usage(&self) {
-        println!("{} -h  --  Display this help message", self.program);
-        println!("{} {}", self.program, cmd_init::usage_message());
+    pub fn new_with_args(cwd: PathBuf, args: Vec<String>) -> Self {
+	let argc = args.len();
+	return Kinoko {
+	    argv: args,
+	    argc: argc,
+	    cwd: cwd,
+	};
     }
 
     pub fn get_mushroom_path(&self) -> PathBuf {
@@ -62,34 +93,48 @@ impl Kinoko {
         return head_path.is_file();
     }
 
-    pub fn try_to_germinate(&self) -> bool {
+    pub fn try_germinate(&self) -> Result<PathBuf, GerminationError> {
         if ! self.has_roots_at_cwd() {
-            return false;
+            return Err(GerminationError::MissingRoots(self.cwd.clone()));
         }
-        let mushroom = Mushroom::deserialize(self.get_mushroom_path());
+        let mushroom_path = self.get_mushroom_path();
+        let mushroom = Mushroom::deserialize(&mushroom_path);
         let mushroom = match mushroom {
             Some(v) => v,
-            None => return false,
+            None => return Err(GerminationError::MushroomUnpickable(mushroom_path)),
         };
         info!("Mushroom.root = {}", mushroom.root);
         info!("Mushroom.head = {}", mushroom.head);
         let source_path = self.cwd.join(&mushroom.root);
         if ! source_path.is_file() {
-            error!("Source file doesn't exist: {}", mushroom.root);
-            return false;
+	   return Err(GerminationError::InvalidRoot(mushroom.root));
         }
+
         let target_path = self.cwd.join(&mushroom.head);
         let target_dir  = target_path.parent();
         if let Some(target_dir) = target_dir {
             match fs::create_dir_all(target_dir) {
                 Ok(_) => {},
                 Err(err) => {
-                    error!("{}", err);
-                    return false;
+                    return Err(GerminationError::NoHeadDir(err));
                 },
             }
         }
-        return make_head_from_roots(&mushroom, &self);
+
+        return match try_make_head_from_roots(&mushroom, &self) {
+            Ok(_) => Ok(if cfg!(windows) { PathBuf::from(format!("{}", target_path.display()).replace("/", "\\")) } else { target_path }),
+            Err(msg) => Err(GerminationError::GrowthFailure(msg)),
+        };
+    }
+
+    pub fn germinate(&self) -> bool {
+	return match self.try_germinate() {
+	    Ok(_) => true,
+	    Err(e) => {
+		error!("{}", e);
+		return false;
+	    },
+	};
     }
 }
 pub struct Mushroom {
@@ -108,7 +153,8 @@ impl Mushroom {
         return format!("root: {}\nhead: {}", self.root, self.head);
     }
 
-    pub fn deserialize(file: PathBuf) -> Option<Mushroom> {
+    pub fn deserialize<P: AsRef<std::path::Path>>(file: P) -> Option<Mushroom> {
+        let file = file.as_ref().to_path_buf();
         if !file.is_file() {
             return None;
         }
@@ -172,7 +218,7 @@ impl Mushroom {
     }
 }
 
-fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
+fn try_make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> Result<(), String> {
     if kinoko.mushroom_head_exists(&mushroom) {
         let mhead_path = kinoko.get_mushroom_head_path(&mushroom);
         let old_mhead_path = kinoko.get_mushroom_old_head_path(&mushroom);
@@ -181,10 +227,11 @@ fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
     let mut cmd = mushroom.create_command(kinoko);
     let result = cmd.status();
     let mut succeeded = false;
-    match result {
+    return match result {
         Err(err) => {
-            error!("Failed to execute command: {}", err);
             restore_old_mushroom_head_if_exists(&mushroom, &kinoko);
+
+	   Err(format!("Failed to execute command: {}", err))
         },
         Ok(status) => {
             if status.success() {
@@ -192,14 +239,25 @@ fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
                 info!("Germinated succesfully: {}.exe", mushroom.head);
                 #[cfg(target_family="unix")]
                 info!("Germinated succesfully: {}", mushroom.head);
-                succeeded = true;
+
+                Ok(())
             } else {
-                error!("Failed to germinate");
                 restore_old_mushroom_head_if_exists(&mushroom, &kinoko);
+
+                Err(format!("Command failed: No germination done"))
             }
         },
     };
-    return succeeded;
+}
+fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
+    match try_make_head_from_roots(mushroom, kinoko) {
+	Ok(_) => true,
+	Err(e) => {
+	    error!("{}", e);
+
+	    false
+	},
+    }
 }
 
 pub fn restore_old_mushroom_head_if_exists(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {

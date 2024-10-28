@@ -4,3 +4,8 @@ debug/
 **/*.rs.bk
 *.pdb
 *.exe
+
+# Emacs
+*~
+\#*\#
+*\#

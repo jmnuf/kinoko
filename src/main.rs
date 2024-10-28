@@ -8,13 +8,32 @@ use std::rc::Rc;
 // Helper
 mod utility;
 mod data_structs;
-mod commands_helper;
-
-// Commands
-mod cmd_init;
 
 use utility::*;
 use data_structs::*;
+
+// Commands
+mod cmd_init;
+mod cmd_build;
+
+macro_rules! print_cmd_usage {
+    ($cmd: expr) => {
+	println!(" {:<25}--   {}", ($cmd).0, ($cmd).1)
+    };
+}
+
+fn usage(program: String) {
+    println!("Usage: {} <command> [Options]", program);
+    // let print_cmd_usage = |(format, desc)| println!()
+    let cmd_usage = cmd_init::usage_message();
+    print_cmd_usage!(cmd_usage);
+    // println!(" {:>20}--  {}",  cmd_usage.0, cmd_usage.1);
+    let cmd_usage = cmd_build::usage_message();
+    print_cmd_usage!(cmd_usage);
+    
+    print_cmd_usage!(("help", "Display this help message"));
+    // println!(" help{<20}  Display this help message", "--");
+}
 
 fn main() -> ExitCode {
     let cwd = match env::current_dir() {
@@ -25,14 +44,20 @@ fn main() -> ExitCode {
         },
     };
     set_cwd(&cwd);
-    let kinoko = Kinoko::new(cwd.clone());
-    if kinoko.argc > 0 && kinoko.argv[0] == String::from("-h") {
-        kinoko.print_usage();
+    let mut args:Vec<String> = env::args().collect();
+    let program = args.remove(0);
+    if args.is_empty() {
+	error!("No command was provided.");
+	usage(program);
+	return ExitCode::FAILURE;
+    }
+    if args[0] == String::from("help") {
+        usage(program);
         return ExitCode::SUCCESS;
     }
 
-    if cmd_init::check_args(&kinoko.argv) {
-        return match cmd_init::run_command(cwd, kinoko.argv) {
+    if cmd_init::check_args(&args) {
+        return match cmd_init::run_command(cwd, args) {
             Ok(_) => ExitCode::SUCCESS,
             Err(e) => {
                 error!("Failed to initialize project: {}", e);
@@ -40,48 +65,20 @@ fn main() -> ExitCode {
             },
         }
     }
-
-    if kinoko.try_to_germinate() {
-        return ExitCode::SUCCESS;
+    if cmd_build::check_args(&args) {
+	return match cmd_build::run_command(cwd, args) {
+	    Ok(_) => ExitCode::SUCCESS,
+	    Err(e) => {
+		error!("Failed to build: {}", e);
+		ExitCode::FAILURE
+	    },
+	}
     }
-    info!("Spores thrown at: {}", kinoko.cwd.display());
-    let root_path = match search_directory_for_main_function(&kinoko.cwd, rust_file_dir_entry_checker) {
-        Ok(path) => path,
-        Err(err) => {
-            error!("{}", err);
-            return ExitCode::FAILURE;
-        },
-    };
+
+    error!("Unknown command passed by: {}", args[0]);
     
-    match File::create(kinoko.get_mushroom_path()) {
-        Err(err) => {
-            error!("Failed to grow mushroom: {}", err);
-            return ExitCode::FAILURE;
-        },
-        Ok(mut file) => {
-            let target_name = cwd.join("build").join(cwd.file_stem().unwrap());
-            let root_path = root_path.strip_prefix(&cwd).unwrap();
-            let root_path = format!("{}", root_path.display());
-            let target_name = target_name.strip_prefix(&cwd).unwrap();
-            let target_name = format!("{}", target_name.display());
-            let mut mushroom = Mushroom::new();
-            mushroom.root = root_path.to_string();
-            mushroom.head = target_name.to_string();
-            let contents:String = mushroom.serialize();
-            match file.write(&contents.into_bytes()) {
-                Ok(_) => info!("Mushroom sprung"),
-                Err(err) => {
-                    error!("Failed to spring mushroom: {}", err);
-                    return ExitCode::FAILURE;
-                },
-            }
-        }
-    };
-
-    if ! kinoko.try_to_germinate() {
-        return ExitCode::FAILURE;
-    }
-    return ExitCode::SUCCESS;
+    
+    return ExitCode::FAILURE;
 }
 
 #[derive(Debug)]

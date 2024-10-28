@@ -5,7 +5,6 @@ use std::io::Write;
 
 use utility::*;
 use data_structs::*;
-use commands_helper::{Action};
 
 type CmdResult = Result<(), String>;
 const COMMAND_NAME: &'static str = "init";
@@ -23,8 +22,11 @@ pub fn check_args(argv: &Vec<String>) -> bool {
     return false;
 }
 
-pub fn usage_message() -> String {
-    format!("{} <project-name>  --  Initialize tiny rust project", COMMAND_NAME)
+pub fn usage_message() -> (String, &'static str) {
+    (
+	format!("{} <project-name>", COMMAND_NAME),
+	"Plant a mushroom! Initialize tiny rust project"
+    )
 }
 
 pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
@@ -61,8 +63,7 @@ pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
     let build_path = project_path.join(build_folder_name);
     create_dir(&build_path)?;
     let main_path  = src_path.join(main_file_name);
-    create_file(&main_path, r#"
-use std::process::ExitCode;
+    create_file(&main_path, r#"use std::process::ExitCode;
 
 fn run(args: Vec<String>) -> Result<(), String> {
     println!("Hello world!");

@@ -1,2 +1,2 @@
-root: src\main.rs
-head: build\kinoko
+root: src/main.rs
+head: build/kinoko
