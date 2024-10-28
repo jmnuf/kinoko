@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::convert::From;
 use std::fs;
 use std::io::Write;
 

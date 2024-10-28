@@ -44,7 +44,7 @@ impl std::error::Error for GerminationError {}
 
 impl Kinoko {
     pub fn new(cwd: PathBuf) -> Self {
-        let mut argv:Vec<String> = env::args().collect();
+        let argv:Vec<String> = env::args().collect();
         let argc:usize = argv.len();
         return Kinoko {
             argv: argv,
@@ -125,16 +125,6 @@ impl Kinoko {
             Ok(_) => Ok(if cfg!(windows) { PathBuf::from(format!("{}", target_path.display()).replace("/", "\\")) } else { target_path }),
             Err(msg) => Err(GerminationError::GrowthFailure(msg)),
         };
-    }
-
-    pub fn germinate(&self) -> bool {
-	return match self.try_germinate() {
-	    Ok(_) => true,
-	    Err(e) => {
-		error!("{}", e);
-		return false;
-	    },
-	};
     }
 }
 pub struct Mushroom {
@@ -226,7 +216,6 @@ fn try_make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> Result<(), 
     }
     let mut cmd = mushroom.create_command(kinoko);
     let result = cmd.status();
-    let mut succeeded = false;
     return match result {
         Err(err) => {
             restore_old_mushroom_head_if_exists(&mushroom, &kinoko);
@@ -248,16 +237,6 @@ fn try_make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> Result<(), 
             }
         },
     };
-}
-fn make_head_from_roots(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {
-    match try_make_head_from_roots(mushroom, kinoko) {
-	Ok(_) => true,
-	Err(e) => {
-	    error!("{}", e);
-
-	    false
-	},
-    }
 }
 
 pub fn restore_old_mushroom_head_if_exists(mushroom: &Mushroom, kinoko: &Kinoko) -> bool {

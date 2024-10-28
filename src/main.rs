@@ -1,8 +1,8 @@
 use std::env; 
 use std::process::ExitCode;
 use std::path::{Path,PathBuf};
-use std::fs::{self, File, DirEntry};
-use std::io::{self, Write};
+use std::fs::{self, DirEntry};
+use std::io;
 use std::rc::Rc;
 
 // Helper
@@ -10,7 +10,6 @@ mod utility;
 mod data_structs;
 
 use utility::*;
-use data_structs::*;
 
 // Commands
 mod cmd_init;
@@ -81,6 +80,7 @@ fn main() -> ExitCode {
     return ExitCode::FAILURE;
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 enum MainFnSearchError {
     MainNotFound(PathBuf),
@@ -109,12 +109,14 @@ impl From<io::Error> for MainFnSearchError {
     }
 }
 
+#[allow(unused)]
 enum DirEntryAction {
     Ignore,
     ReadFile,
     ReadDir,
 }
 
+#[allow(unused)]
 fn rust_file_dir_entry_checker(entry: &DirEntry) -> DirEntryAction {
     let entry_path = entry.path();
     if entry_path.is_dir() {
@@ -132,6 +134,7 @@ fn rust_file_dir_entry_checker(entry: &DirEntry) -> DirEntryAction {
 }
 
 
+#[allow(unused)]
 fn search_directory_for_main_function<P: AsRef<Path> + Clone, C: Fn(&DirEntry) -> DirEntryAction>(
     search_dir: P,
     dir_entry_checker: C,
@@ -139,6 +142,7 @@ fn search_directory_for_main_function<P: AsRef<Path> + Clone, C: Fn(&DirEntry) -
     return search_directory_for_main_function_recursor(search_dir, Rc::new(dir_entry_checker), 0);
 }
 
+#[allow(unused)]
 fn search_directory_for_main_function_recursor<P: AsRef<Path> + Clone, C: Fn(&DirEntry) -> DirEntryAction>(
     search_dir: P,
     dir_entry_checker: Rc<C>,

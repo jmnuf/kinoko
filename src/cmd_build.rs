@@ -29,7 +29,7 @@ pub fn usage_message() -> (String, &'static str) {
     )
 }
 
-pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
+pub fn run_command(_cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
     // Remove command name
     args.remove(0);
     let run_build = if args.len() > 0 {
