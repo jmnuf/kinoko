@@ -18,7 +18,7 @@ mod cmd_build;
 
 macro_rules! print_cmd_usage {
     ($cmd: expr) => {
-	println!(" {:<25}--   {}", ($cmd).0, ($cmd).1)
+	println!(" {:<50}--     {}", ($cmd).0, ($cmd).1)
     };
 }
 

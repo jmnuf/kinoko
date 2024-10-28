@@ -24,8 +24,8 @@ pub fn check_args(argv: &Vec<String>) -> bool {
 
 pub fn usage_message() -> (String, &'static str) {
     (
-	format!("{} [-r] [dir]", COMMAND_NAME),
-	"Germinate! Compile rust based on kinoko.🍄 and if `-r` flag is passed runs build after compilation"
+	format!("{} [-r] [dir] [-- [run-args]]", COMMAND_NAME),
+	"Germinate! Compile rust based on kinoko.🍄\n\t\t\t\t Pass `-r` flag to run build after compilation.\n\t\t\t\t Any arguments passed after `--` will be passed onto the ran build"
     )
 }
 
@@ -45,24 +45,45 @@ pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
     } else {
 	false
     };
+
+    let mut build_args = Vec::new();
+    let mut run_args = Vec::new();
+    let mut pass_to_run = false;
+    for arg in args.into_iter() {
+	if pass_to_run {
+	    run_args.push(arg);
+	    continue;
+	}
+	if arg == "--" && ! pass_to_run {
+	    pass_to_run = true;
+	    continue;
+	}
+	build_args.push(arg);
+    }
     
-    let kin = if args.len() > 0 {
-	let path = PathBuf::from(&args[0]);
+    let kin = if build_args.len() > 0 {
+	let path = PathBuf::from(&build_args[0]);
 	if path.exists() && path.is_dir() {
-	    args.remove(0);
-	    Kinoko::new_with_args(path, args)
+	    build_args.remove(0);
+	    Kinoko::new_with_args(path, build_args)
 	} else {
-	    Kinoko::new_with_args((if cfg!(windows) { ".\\" } else { "./" }).into(), args)
+	    Kinoko::new_with_args((if cfg!(windows) { ".\\" } else { "./" }).into(), build_args)
 	}
     } else {
-	Kinoko::new_with_args((if cfg!(windows) { ".\\" } else { "./" }).into(), args)
+	Kinoko::new_with_args((if cfg!(windows) { ".\\" } else { "./" }).into(), build_args)
     };
 
     return match kin.try_germinate() {
 	Err(err) => Err(format!("{}", err)),
 	Ok(out) => {
 	    if run_build {
+		let mut command = format!("{}", out.display());
 		let mut cmd = Command::new(&out);
+		for arg in run_args.into_iter() {
+		    command = format!("{} `{}`", command, arg);
+		    cmd.arg(arg);
+		}
+		println!("[CMD] {}", command);
 		let result = cmd.status();
 		if let Ok(status) = result {
 		    info!("Build output is executable.");
