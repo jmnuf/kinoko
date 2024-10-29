@@ -64,16 +64,17 @@ pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
     let main_path  = src_path.join(main_file_name);
     create_file(&main_path, r#"use std::process::ExitCode;
 
-fn run(args: Vec<String>) -> Result<(), String> {
+fn run(program: String, args: Vec<String>) -> Result<(), String> {
     println!("Hello world!");
-    println!("Argument count: {}", args.len());
-    println!("Program Arguments: {:?}", args);
+    println!("] {} {}", program, args);
+    println!("Arguments count: {}", args.len());
     Ok(())
 }
 
 fn main() -> ExitCode {
     let args:Vec<String> = std::env::args().collect();
-    match run(args) {
+    let program:String = args.remove(0);
+    match run(program, args) {
         Ok(_) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("ERROR: {}", err);
