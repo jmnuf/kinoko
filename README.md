@@ -9,7 +9,9 @@ Kinoko only is operational on code that does **NOT** use dependencies outside of
 > Not sure how obvious it is to some but it is required to have rust installed with `rustc` included in your path.
 
 ## kinoko.🍄
-The `kinoko.🍄` file is the basis on how the mini-project is compiled in a very naive sense. All it keeps track of as of now is the target name and the entry file. If the file doesn't exist it will be created by attempting to find where a `fn main()` might exist in the current directory or the `src` subdirectory if it exists to figure out where's the entry file and proceeds to use the current directory's name as the output file name.
+The `kinoko.🍄` file is the basis on how the mini-project is compiled in a very naive sense. All it keeps track of as of now is the target name and the entry file. ~~If the file doesn't exist it will be created by attempting to find where a `fn main()` might exist in the current directory or the `src` subdirectory if it exists to figure out where's the entry file and proceeds to use the current directory's name as the output file name.~~
+> NOTE:
+> Before the kinoko program would auto-generate the kinoko file if not found by searching for an entry point. This functionality is momentarily removed and will be brought back in the future as a separate command probably.
 The file holds the following structure:
 ```
 root: src/main.rs
@@ -20,7 +22,7 @@ With `root` referring to the entry file and `head` referring to the output file.
 ## Run/Germinate
 To make the mushroom germinate an executable all that's needed is to run the following:
 ```console
-$ kinoko
+$ kinoko build
 ```
 This will automatically call onto `rustc` and provide what are the entry file and the output file based on `kinoko.🍄` file.
 Will approximately do the following:
