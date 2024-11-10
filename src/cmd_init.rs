@@ -61,20 +61,46 @@ pub fn run_command(cwd: PathBuf, mut args: Vec<String>) -> CmdResult {
     create_dir(&src_path)?;
     let build_path = project_path.join(build_folder_name);
     create_dir(&build_path)?;
+    let gitignore_path = project_path.join(".gitignore");
+    create_file(&gitignore_path, r#"
+# Kinoko build output
+build/
+
+# MSVC Windows builds of rustc generate these, which store debugging information
+*.pdb
+
+# Cargo
+target/
+debug/
+Cargo.lock
+
+# rustfmt
+**/*.rs.bk
+
+# Ignore vscode stuff
+.vscode/
+# Ignore Emacs stuff
+*~
+\#*\#
+"#.to_string())?;
     let main_path  = src_path.join(main_file_name);
     create_file(&main_path, r#"use std::process::ExitCode;
 
-fn run(program: String, args: Vec<String>) -> Result<(), String> {
+fn run(program: &str, args: Vec<String>) -> Result<(), String> {
     println!("Hello world!");
-    println!("] {} {}", program, args);
+    print!("] {}", program);
+    for arg in args.iter() {
+        print!(" {:?}", arg);
+    }
+    println!();
     println!("Arguments count: {}", args.len());
     Ok(())
 }
 
 fn main() -> ExitCode {
-    let args:Vec<String> = std::env::args().collect();
+    let mut args:Vec<String> = std::env::args().collect();
     let program:String = args.remove(0);
-    match run(program, args) {
+    match run(&program, args) {
         Ok(_) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("ERROR: {}", err);
